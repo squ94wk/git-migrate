@@ -41,7 +41,8 @@ function main() {
             export_repos "$@"
             ;;
         import)
-            import "$@"
+            trap clean_up_tmp EXIT
+            restore_repos "$@"
             ;;
         *)
             echo "usage: ..."
@@ -49,8 +50,29 @@ function main() {
     esac
 }
 
-#function import_repos {
-#}
+function restore_repos {
+    if [[ $# -eq 0 ]]; then
+        echo "nothing to import"; exit 0
+    fi
+
+    # TODO: add option to upload
+    tmpdir="$(mktemp -d "$workdir"/.git-migrate.XXXXXX)"
+    cd "$workdir" || exit 1
+    tar xf "$1" -C "$tmpdir"
+    local bundles
+    bundles="$(find "$tmpdir" -name "*.bundle")"
+
+    for bundle in ${bundles}; do
+        local relPath basePath targetPath
+        relPath="${bundle#${tmpdir}/}"
+        basePath="$(dirname "$relPath")"
+        targetPath="${2}/${relPath%.*}"
+
+        mkdir -p "${2}/${basePath}"
+        git clone "$bundle" "$targetPath" &> /dev/null || echo "failed to restore \'${bundle%.bundle}\'" && continue
+        echo "successfully restored \'${bundle%.bundle}\'"
+    done
+}
 
 function export_repos {
     if [[ $# -eq 0 ]]; then
