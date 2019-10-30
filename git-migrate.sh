@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-set -eo pipefail
-if [[ "$DEBUG" == "1" ]]; then
+set -o pipefail
+if [[ "$DEBUG" == 1 ]]; then
     set -x
+fi
+
+# Reject root
+if [[ "$EUID" -eq 0 ]]; then
+    echo "Don't run as root"; exit 1
 fi
 
 workdir="$(pwd)"
@@ -32,6 +37,7 @@ function main() {
 
     case $verb in
         export)
+            trap clean_up_tmp EXIT
             export_repos "$@"
             ;;
         import)
@@ -43,7 +49,7 @@ function main() {
     esac
 }
 
-#function import {
+#function import_repos {
 #}
 
 function export_repos {
@@ -76,8 +82,12 @@ function export_repos {
         echo "nothing left to package"; exit 0
     fi
     tar cf "$workdir"/export.tar $bundles > /dev/null && echo "successfully packaged bundles into 'export.tar'"
+}
 
-    rm -rf "$tmpdir"
+function clean_up_tmp {
+    if [[ -n "$tmpdir" ]] && [[ -e "$tmpdir" ]]; then
+        rm -rf "$tmpdir"
+    fi
 }
 
 main "$@"
